@@ -1,0 +1,19 @@
+
+import example4
+def test_sample():
+	example4.tertiary(882, 832)
+	example4.tertiary(882, 833)
+	example4.tertiary(882, 833)
+	example4.tertiary(882, 836)
+	example4.tertiary(882, 833)
+	example4.tertiary(879, 833)
+	example4.tertiary(880, 833)
+	example4.tertiary(884, 833)
+	example4.tertiary(887, 833)
+	example4.tertiary(891, 833)
+	example4.tertiary(886, 833)
+	example4.tertiary(886, 830)
+	example4.tertiary(887, 830)
+	example4.tertiary(42, 2)
+	example4.tertiary(42, 5)
+	example4.tertiary(42, 2007)

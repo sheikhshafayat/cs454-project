@@ -1,0 +1,23 @@
+
+import example5
+def test_sample():
+	example5.collection(471985, 661467, 138393)
+	example5.collection(471985, 661466, 138393)
+	example5.collection(471985, 661467, 138393)
+	example5.collection(471989, 661467, 138393)
+	example5.collection(471989, 661467, 138391)
+	example5.collection(471989, 661467, 138386)
+	example5.collection(471989, 661467, 138383)
+	example5.collection(471992, 661467, 138383)
+	example5.collection(471992, 661467, 138388)
+	example5.collection(471996, 661467, 138388)
+	example5.collection(471996, 661469, 138388)
+	example5.collection(471993, 661469, 138388)
+	example5.collection(471989, 661469, 138388)
+	example5.collection(471984, 661469, 138388)
+	example5.collection(471989, 661469, 138388)
+	example5.collection(471992, 661469, 138388)
+	example5.collection(42, 42, 0)
+	example5.collection(1038472, 1038472, 1038472)
+	example5.collection(1038472, 1038472, 1038474)
+	example5.collection(1038472, 66, 99)

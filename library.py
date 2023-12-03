@@ -24,7 +24,7 @@ def get_gpt_response(question, system_prompt="", temperature=0.7,
     temperature=temperature,
     messages=[
       {"role": "system", "content": system_prompt},
-      {"role": "user", "content": f"{question}"}
+      {"role": "user", "content": f"```{question}```"}
     ])
     return completion.choices[0].message.content
   
@@ -40,8 +40,8 @@ def get_gpt4_response(question, system_prompt="", temperature=0.7):
       {"role": "user", "content": f"{question}"}
     ])
   except:
-    print("\nFirst request failed... Trying in 30 seconds \n")
-    time.sleep(30)
+    print("\nFirst request failed... Trying in 3 seconds \n")
+    time.sleep(3)
     completion = client.chat.completions.create(model="gpt-4",
     temperature=temperature,
     messages=[
