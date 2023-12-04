@@ -181,7 +181,7 @@ if __name__ == "__main__":
     functions_info = extract_function_info(tree)  # getting how many functions and their names 
 
 
-    int_list = collect_literals(tree) # getting all the ints in the code
+    input_list = collect_inputs(tree) # getting all the inputs in the code
 
     final_test_file_content = ""
     
@@ -190,7 +190,7 @@ if __name__ == "__main__":
         function_name, num_arguments = functions_info[i]
         
         print(f"Function name: {function_name}, number of arguments: {num_arguments}")
-        test_file_content =  hill_climbing(script_path, function_name, num_arguments, int_list, max_iterations=100)
+        test_file_content =  hill_climbing(script_path, function_name, num_arguments, input_list, max_iterations=100)
         
         if i > 0:
             test_file_content = test_file_content.split("\n")[2:]
