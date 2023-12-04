@@ -11,10 +11,13 @@ from library import *
 from datasets import load_dataset
 
 if len(sys.argv) != 2:
-    print("There must be 2 arguments : generator.py and an integer.")
+    print("There must be 2 arguments : 'generator.py' and an integer a that 0 <= a < 5000.")
     sys.exit()
     
 number = int(sys.argv[1])
+if number < 0 or number >= 5000:
+    print("The integer must be nonnegative, and lower than 5000.")
+    sys.exit()
 
 dataset = load_dataset("codeparrot/apps")
 
