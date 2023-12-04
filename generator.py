@@ -11,7 +11,7 @@ from library import *
 from datasets import load_dataset
 
 if len(sys.argv) != 2:
-    print("There must be 2 arguments.")
+    print("There must be 2 arguments : generator.py and an integer.")
     sys.exit()
     
 number = int(sys.argv[1])
