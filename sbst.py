@@ -121,16 +121,22 @@ def hill_climbing(script_path, function_name, num_arguments, int_list, max_itera
 
     # gpt initialization
     # get the code
+    if args.gpt_feedback == "True":
+        print(f"Using GPT Feedback")
 
-    if args.gpt_or_not == "True":   
-        print(f"Using GPT") 
+    if args.gpt_init == "True":   
+        print(f"Using GPT Initialization") 
         with open(script_path, "r") as f:
             code = f.read()
         
         random_tuple = None 
         while random_tuple is None:
             random_tuple = get_gpt_response(code, system_prompt_0, model="gpt-3.5-turbo-1106")
-            random_tuple = tuple(parse_answer(random_tuple))
+            # print(f"random_tuple: {random_tuple}")
+            random_tuple = parse_answer(random_tuple)
+            if random_tuple is None:
+                continue
+            random_tuple = tuple(random_tuple)
     ############################
 
     arg_list.append(random_tuple)
@@ -152,7 +158,7 @@ def hill_climbing(script_path, function_name, num_arguments, int_list, max_itera
         
         if it - up > 3: # if stuck in a local optimum, make a jump
             # traditional jump
-            if args.gpt_or_not != "True":
+            if args.gpt_feedback != "True":
                 if len(int_list) == 0:
                     tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
                 else:
@@ -165,7 +171,7 @@ def hill_climbing(script_path, function_name, num_arguments, int_list, max_itera
                         tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
             
             # gpt jump
-            if args.gpt_or_not == "True":
+            if args.gpt_feedback == "True":
                 prompt = f"Code:\n{code}\n\nCurrent Test Cases:\n{str(arg_list_2)}"
                 # print(f"here")
                 tmp = None 
@@ -200,7 +206,8 @@ def hill_climbing(script_path, function_name, num_arguments, int_list, max_itera
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("target", help="the target python file to generate unit tests for")
-    parser.add_argument("gpt_or_not", help="whether to use gpt or not. True of False")
+    parser.add_argument("gpt_init", help="whether to use gpt initialization or not. True of False")
+    parser.add_argument("gpt_feedback", help="whether to use gpt feedback or not. True of False")
     args = parser.parse_args()
 
     script_path = args.target
