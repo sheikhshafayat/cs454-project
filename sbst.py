@@ -88,14 +88,14 @@ def hill_climbing(script_path, function_name, num_arguments, int_list, max_itera
     
     arg_list = []
     # random initialization
-    # this was my original solution
-    """
+
+
     if len(int_list) == 0:
         random_tuple = tuple(random.randint(-100, 100) for _ in range(num_arguments))
     else:
         #random_tuple = tuple(random.choice(int_list) for _ in range(num_arguments))
         random_tuple = tuple(random.randint(min(int_list), max(int_list)) for _ in range(num_arguments))
-    """
+
 
     system_prompt_0 = f"""You are given a piece of code. Your job is to generate a
     test case that will maximize the code coverage of the test suite.
@@ -121,13 +121,16 @@ def hill_climbing(script_path, function_name, num_arguments, int_list, max_itera
 
     # gpt initialization
     # get the code
-    with open(script_path, "r") as f:
-        code = f.read()
-    
-    random_tuple = None 
-    while random_tuple is None:
-        random_tuple = get_gpt_response(code, system_prompt_0, model="gpt-3.5-turbo-1106")
-        random_tuple = tuple(parse_answer(random_tuple))
+
+    if args.gpt_or_not == "True":   
+        print(f"Using GPT") 
+        with open(script_path, "r") as f:
+            code = f.read()
+        
+        random_tuple = None 
+        while random_tuple is None:
+            random_tuple = get_gpt_response(code, system_prompt_0, model="gpt-3.5-turbo-1106")
+            random_tuple = tuple(parse_answer(random_tuple))
     ############################
 
     arg_list.append(random_tuple)
@@ -146,32 +149,33 @@ def hill_climbing(script_path, function_name, num_arguments, int_list, max_itera
         tmp = list(arg_list_2[-1])
         tmp[neighbor_index] += random.randint(-5, 5) # hyperparameter
         tmp = tuple(tmp)
-
-        if it - up > 5: # if stuck in a local optimum, make a jump
+        
+        if it - up > 3: # if stuck in a local optimum, make a jump
             # traditional jump
-            """
-            if len(int_list) == 0:
-                tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
-            else:
-                rand = random.random() # three cases: 1. random int in proper range, 2. random choice from int_list, 3. random int from -100 to 100
-                if rand < 0.4:
-                    tmp = tuple(random.randint(min(int_list), max(int_list)) for _ in range(num_arguments))
-                elif (rand < 0.8) and (rand >= 0.4):    
-                    tmp = tuple(random.choice(int_list) for _ in range(num_arguments))
-                else:
+            if args.gpt_or_not != "True":
+                if len(int_list) == 0:
                     tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
-            """
+                else:
+                    rand = random.random() # three cases: 1. random int in proper range, 2. random choice from int_list, 3. random int from -100 to 100
+                    if rand < 0.4:
+                        tmp = tuple(random.randint(min(int_list), max(int_list)) for _ in range(num_arguments))
+                    elif (rand < 0.8) and (rand >= 0.4):    
+                        tmp = tuple(random.choice(int_list) for _ in range(num_arguments))
+                    else:
+                        tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
+            
             # gpt jump
-            prompt = f"Code:\n{code}\n\nCurrent Test Cases:\n{str(arg_list_2)}"
-            # print(f"here")
-            tmp = None 
-            while tmp is None:
-                tmp = get_gpt_response(prompt, system_prompt_1, model="gpt-3.5-turbo-1106")
-                tmp = parse_answer(tmp)
-                print(f"tmp: {tmp}")
-                if tmp is None:
-                    continue
-                tmp = tuple(tmp)
+            if args.gpt_or_not == "True":
+                prompt = f"Code:\n{code}\n\nCurrent Test Cases:\n{str(arg_list_2)}"
+                # print(f"here")
+                tmp = None 
+                while tmp is None:
+                    tmp = get_gpt_response(prompt, system_prompt_1, model="gpt-3.5-turbo-1106")
+                    tmp = parse_answer(tmp)
+                    print(f"tmp: {tmp}")
+                    if tmp is None:
+                        continue
+                    tmp = tuple(tmp)
 
             up = it
         arg_list_2.append(tmp)
@@ -187,13 +191,16 @@ def hill_climbing(script_path, function_name, num_arguments, int_list, max_itera
     
     final_fitness, final_test_file_content = fitness_function(script_path, function_name, arg_list)
     print(f"Final arguments: {arg_list}")
+    print(f"There are {len(arg_list)} test cases")
     print(f"Final fitness: {final_fitness}")
+    print(f"Finished at iteration: {it}")
     return final_test_file_content
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("target", help="the target python file to generate unit tests for")
+    parser.add_argument("gpt_or_not", help="whether to use gpt or not. True of False")
     args = parser.parse_args()
 
     script_path = args.target
