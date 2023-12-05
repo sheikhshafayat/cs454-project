@@ -8,6 +8,8 @@ import os
 import ast 
 import json
 from library import *
+import csv
+
 
 def collect_ints(node):
     ints = []
@@ -84,7 +86,7 @@ def test_sample():
         raise ValueError("Failed to parse coverage percentage")
 
 
-def hill_climbing(script_path, function_name, num_arguments, int_list, max_iterations=1000):
+def hill_climbing(script_path, function_name, num_arguments, int_list, args, max_iterations=1000):
     
     arg_list = []
     # random initialization
@@ -196,10 +198,33 @@ def hill_climbing(script_path, function_name, num_arguments, int_list, max_itera
         it += 1
     
     final_fitness, final_test_file_content = fitness_function(script_path, function_name, arg_list)
+    print(f"file name: {args.target}")
     print(f"Final arguments: {arg_list}")
     print(f"There are {len(arg_list)} test cases")
     print(f"Final fitness: {final_fitness}")
     print(f"Finished at iteration: {it}")
+    print(f"gpt init: {args.gpt_init}")
+    print(f"gpt feedback: {args.gpt_feedback}")
+
+    filename = 'results.csv'
+
+    # Check if the file already exists to decide whether to write headers
+    file_exists = os.path.isfile(filename)
+
+    # Open the file in append mode
+    with open(filename, 'a', newline='') as csvfile:
+        # Create a CSV writer object
+        csvwriter = csv.writer(csvfile)
+
+        # Write the header if the file is new
+        if not file_exists:
+            csvwriter.writerow(['File Name', 'Final Arguments', 'Number of Test Cases', 'Final Fitness', 'Finished at Iteration', 'GPT Init', 'GPT Feedback'])
+
+        # Write the data
+        csvwriter.writerow([args.target, str(arg_list), len(arg_list), final_fitness, it, args.gpt_init, args.gpt_feedback])
+
+
+
     return final_test_file_content
 
 
@@ -223,7 +248,7 @@ if __name__ == "__main__":
         function_name, num_arguments = functions_info[i]
         
         print(f"Function name: {function_name}, number of arguments: {num_arguments}")
-        test_file_content =  hill_climbing(script_path, function_name, num_arguments, int_list, max_iterations=100)
+        test_file_content =  hill_climbing(script_path, function_name, num_arguments, int_list, args, max_iterations=100)
         
         if i > 0:
             test_file_content = test_file_content.split("\n")[2:]
