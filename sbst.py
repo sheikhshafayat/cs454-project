@@ -46,11 +46,15 @@ def fitness_function(script_path, function_name, arguments):
     
     
     result = [str(t) for t in arguments]
+    #print("RESULT = ", result, "\n")
+
     target_module = os.path.basename(script_path).removesuffix(".py")
     second_part = ""
     for arg in arguments:
         second_part += f"\t{target_module}.{function_name}{arg}\n"
     #print(f"target module: {target_module}")
+    #print("SECOND PART = ", second_part, "\n")
+
 
     test_file_content = f'''
 import {target_module}
@@ -63,7 +67,6 @@ def test_sample():
     #print(f"Test file name: {test_file_name}")
     with open(test_file_name, 'w') as f:
         f.write(test_file_content)
-    
     
     
     # Run the script with coverage
@@ -81,6 +84,8 @@ def test_sample():
     if coverage_percent_match:
         coverage_percent = int(coverage_percent_match.group(1)[:-1])
         #print(f"Coverage: {coverage_percent}%")
+        #print("COVERAGE PERCENT = ", coverage_percent, "\n")
+
         return coverage_percent, test_file_content
     else:
         raise ValueError("Failed to parse coverage percentage")
@@ -126,10 +131,14 @@ def hill_climbing(script_path, function_name, num_arguments, int_list, args, max
     if args.gpt_feedback == "True":
         print(f"Using GPT Feedback")
 
+    with open(script_path, "r") as f:
+        code = f.read()
+
     if args.gpt_init == "True":   
         print(f"Using GPT Initialization") 
-        with open(script_path, "r") as f:
-            code = f.read()
+        """with open(script_path, "r") as f:
+            code = f.read()"""
+        #print("CODE = ", code, "\n")
         
         random_tuple = None 
         while random_tuple is None:
@@ -150,7 +159,7 @@ def hill_climbing(script_path, function_name, num_arguments, int_list, args, max
     it = 0
     up = 0
     while (it < max_iterations) and (current_fitness < 100):
-        print(f"Iteration: {it}")
+        #print(f"Iteration: {it}")
         # Generate a neighbor
         arg_list_2 = arg_list.copy()
         neighbor_index = random.randint(0, num_arguments - 1)
