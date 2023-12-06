@@ -7,6 +7,8 @@ import random
 import os
 import ast 
 import json
+import csv
+import string
 from library import *
 
 def collect_literals(node):
@@ -53,15 +55,19 @@ def extract_function_info(node):
             functions_info.append((function_name, num_arguments))
     return functions_info
 
-# Modify fitness_function to accept different types of arguments
 def fitness_function(script_path, function_name, arguments):
-    # Convert arguments to string representation
-    result = [repr(arg) for arg in arguments]
+    
+    
+    result = [str(t) for t in arguments]
+    print("RESULT = ", result, "\n")
+
     target_module = os.path.basename(script_path).removesuffix(".py")
     second_part = ""
     for arg in arguments:
-        #second_part += f"\t{target_module}.{function_name}({repr(arg)})\n"
         second_part += f"\t{target_module}.{function_name}{arg}\n"
+    #print(f"target module: {target_module}")
+    print("SECOND PART = ", second_part, "\n")
+
 
     test_file_content = f'''
 import {target_module}
@@ -69,27 +75,69 @@ def test_sample():
 {second_part}
     '''.strip()
 
+    #print(f"Test file content: {test_file_content}")
     test_file_name = os.path.join(os.path.dirname(script_path), "test_" + os.path.basename(script_path))
+    #print(f"Test file name: {test_file_name}")
     with open(test_file_name, 'w') as f:
         f.write(test_file_content)
-
+    
+    
+    # Run the script with coverage
     run_command = ["coverage", "run", "-m", "pytest", test_file_name]
     subprocess.run(run_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+    # Generate the coverage report
     report_command = ["coverage", "report"]
     report_output = subprocess.run(report_command, text=True, capture_output=True)
+    #print(report_output.stdout)
 
+    # Parse the coverage percentage from the report output
     coverage_line = report_output.stdout.splitlines()[-1]
     coverage_percent_match = re.search(r'(\d+%)', coverage_line)
     if coverage_percent_match:
         coverage_percent = int(coverage_percent_match.group(1)[:-1])
+        #print(f"Coverage: {coverage_percent}%")
+        print("COVERAGE PERCENT = ", coverage_percent, "\n")
+
         return coverage_percent, test_file_content
     else:
         raise ValueError("Failed to parse coverage percentage")
 
+def generate_random_element(argument_type):
+    # Generate a random element of the chosen type
+    if argument_type == "int":
+        print("--int--")
+        return random.randint(-100, 100)
+    elif argument_type == "float":
+        print("--float--")
+        return random.uniform(-100.0, 100.0)
+    elif argument_type == "str":
+        print("--string--")
+        return ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=5))
+    elif argument_type == "tuple":
+        print("--tuple--")
+        return tuple(generate_random_element() for _ in range(random.randint(1, 5)))
+    elif argument_type == "type(None)":
+        print("--type none--")
+        return None
+
+def generate_random_tuple(num_arguments, arguments_type):
+    # Generate a tuple with random elements
+    return tuple(generate_random_element(arguments_type) for _ in range(num_arguments))
+
+
+
 # Modify hill_climbing to work with different types of arguments
-def hill_climbing(script_path, function_name, num_arguments, inputs_list, max_iterations=100):
+def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, max_iterations=1000):
     arg_list = []
+    if len(input_list) == 0:
+        random_tuple = tuple(random.randint(-100, 100) for _ in range(num_arguments))
+    else:
+        #random_tuple = tuple(random.choice(int_list) for _ in range(num_arguments))
+        #random_tuple = tuple(random.randint(min(input_list), max(input_list)) for _ in range(num_arguments))
+        random_tuple = tuple(random.choice(input_list) for _ in range(num_arguments))
+        
+        # maybe have to add min + max constraints ? 
 
     system_prompt_0 = f"""You are given a piece of code. Your job is to generate a
     test case that will maximize the code coverage of the test suite.
@@ -110,19 +158,30 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, max_it
     Retun the test case within this  json format: {{"inputs": [arg1, arg2, ...]}}
     The code and current test cases are given below within triple ticks.
     """
-
-
-
+    
     # gpt initialization
     # get the code
+
+    if args.gpt_feedback == "True":
+        print(f"Using GPT Feedback")
+    
     with open(script_path, "r") as f:
         code = f.read()
-    
-    random_tuple = None 
-    while random_tuple is None:
-        random_tuple = get_gpt_response(code, system_prompt_0, model="gpt-3.5-turbo-1106")
-        random_tuple = tuple(parse_answer(random_tuple))
-    
+
+    if args.gpt_init == "True":   
+        print(f"Using GPT Initialization") 
+        #print("CODE = ", code, "\n")
+        
+        random_tuple = None 
+        while random_tuple is None:
+            random_tuple = get_gpt_response(code, system_prompt_0, model="gpt-3.5-turbo-1106")
+            print(f"random_tuple befor parsing : {random_tuple}")
+            random_tuple = parse_answer(random_tuple)
+            if random_tuple is None:
+                continue
+            random_tuple = tuple(random_tuple)
+    ############################ 
+        print("RANDOM TUPLE = ", random_tuple, "\n")
     arg_list.append(random_tuple)
     print(f"Initial arguments: {arg_list}")
 
@@ -132,26 +191,79 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, max_it
     it = 0
     up = 0
     while (it < max_iterations) and (current_fitness < 100):
-        print(f"Iteration: {it}")
+        #print(f"Iteration: {it}")
         # Generate a neighbor
         arg_list_2 = arg_list.copy()
         neighbor_index = random.randint(0, num_arguments - 1)
         tmp = list(arg_list_2[-1])
+        print("TMP INI  = list(arg_list_2[-1] = ", tmp, "\n")
         #tmp[neighbor_index] = random.choice(inputs_list)
-        tmp[neighbor_index] += random.randint(-5, 5)  # hyperparameter
+        #tmp[neighbor_index] += random.randint(-5, 5)  # hyperparameter
         tmp = tuple(tmp)
+        
+        if isinstance(tmp[neighbor_index], int):
+            tmp = tuple(
+                value + random.randint(-5, 5) if i == neighbor_index else value
+                for i, value in enumerate(tmp)
+            )
+        elif isinstance(tmp[neighbor_index], str):
+            tmp = tuple(
+                value + ''.join(random.choice(string.ascii_letters) for _ in range(3))
+                if i == neighbor_index and random.choice([True, False])  # Add or remove letters randomly
+                else value
+                for i, value in enumerate(tmp)
+            )
+        else:
+            # Handle other types as needed
+            pass
 
-        if it - up > 5:  # if stuck in a local optimum, make a jump
+        
+        
+        print("TMP = tuple(tmp) = ", tmp, "\n\n")
+        
+        variable_type_str = type(input_list[0]).__name__ # assume we have 1 type in the list
+        #print("variable_type_str = ", variable_type_str, "\n\n")
+
+        if it - up > 3:  # if stuck in a local optimum, make a jump
+            # traditional jump
+            if args.gpt_feedback != "True":
+                if len(inputs_list) == 0:
+                    tmp = generate_random_tuple(num_arguments, variable_type_str)
+                    print("LEN 0 -- TMP = ", tmp, "\n\n")
+                    #tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
+                else:
+                    if variable_type_str == "int":
+                        rand = random.random() # 3 cases: 1. random int in proper range, 2. random choice from int_list, 3. random int from -100 to 100
+                        if rand < 0.4:
+                            tmp = tuple(random.randint(min(inputs_list), max(inputs_list)) for _ in range(num_arguments))
+                        elif 0.4 <= rand < 0.8:
+                            tmp = tuple(random.choice(inputs_list) for _ in range(num_arguments))
+                        else:
+                            tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
+                    elif variable_type_str == "string":
+                        rand = random.random()
+                        if rand < 0.4:
+                            tmp = tuple(value + ''.join(random.choice(string.ascii_letters) for _ in range(3)) for value in tmp)
+                            print("debut\n")
+                        elif 0.4 <= rand < 0.8:
+                            tmp = tuple(value + random.choice(inputs_list) for value in tmp)
+                            print("milieu\n")
+                        else:
+                            tmp = tuple(value + ''.join(random.choice(string.ascii_letters) for _ in range(3)) for value in tmp)
+                            print("fin\n")
+
+            
             # gpt jump
-            prompt = f"Code:\n{code}\n\nCurrent Test Cases:\n{str(arg_list_2)}"
-            tmp = None
-            while tmp is None:
-                tmp = get_gpt_response(prompt, system_prompt_1, model="gpt-3.5-turbo-1106")
-                tmp = parse_answer(tmp)
-                print(f"tmp: {tmp}")
-                if tmp is None:
-                    continue
-                tmp = tuple(tmp)
+            if args.gpt_feedback == "True":
+                prompt = f"Code:\n{code}\n\nCurrent Test Cases:\n{str(arg_list_2)}"
+                tmp = None
+                while tmp is None:
+                    tmp = get_gpt_response(prompt, system_prompt_1, model="gpt-3.5-turbo-1106")
+                    tmp = parse_answer(tmp)
+                    print(f"tmp: {tmp}")
+                    if tmp is None:
+                        continue
+                    tmp = tuple(tmp)
 
             up = it
         arg_list_2.append(tmp)
@@ -166,13 +278,41 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, max_it
         it += 1
 
     final_fitness, final_test_file_content = fitness_function(script_path, function_name, arg_list)
+    print(f"file name: {args.target}")
     print(f"Final arguments: {arg_list}")
+    print(f"There are {len(arg_list)} test cases")
     print(f"Final fitness: {final_fitness}")
+    print(f"Finished at iteration: {it}")
+    print(f"gpt init: {args.gpt_init}")
+    print(f"gpt feedback: {args.gpt_feedback}")
+
+    filename = 'results_all_inputs.csv'
+
+    # Check if the file already exists to decide whether to write headers
+    file_exists = os.path.isfile(filename)
+
+    # Open the file in append mode
+    with open(filename, 'a', newline='') as csvfile:
+        # Create a CSV writer object
+        csvwriter = csv.writer(csvfile)
+
+        # Write the header if the file is new
+        if not file_exists:
+            csvwriter.writerow(['File Name', 'Final Arguments', 'Number of Test Cases', 'Final Fitness', 'Finished at Iteration', 'GPT Init', 'GPT Feedback'])
+
+        # Write the data
+        csvwriter.writerow([args.target, str(arg_list), len(arg_list), final_fitness, it, args.gpt_init, args.gpt_feedback])
     return final_test_file_content
 
 if __name__ == "__main__":
+    
+    current_directory = os.getcwd()
+    print("Current Working Directory:", current_directory)
+
     parser = argparse.ArgumentParser()
     parser.add_argument("target", help="the target python file to generate unit tests for")
+    parser.add_argument("gpt_init", help="whether to use gpt initialization or not. True of False")
+    parser.add_argument("gpt_feedback", help="whether to use gpt feedback or not. True of False")
     args = parser.parse_args()
 
     script_path = args.target
@@ -190,7 +330,7 @@ if __name__ == "__main__":
         function_name, num_arguments = functions_info[i]
         
         print(f"Function name: {function_name}, number of arguments: {num_arguments}")
-        test_file_content =  hill_climbing(script_path, function_name, num_arguments, input_list, max_iterations=100)
+        test_file_content =  hill_climbing(script_path, function_name, num_arguments, input_list, args, max_iterations=100)
         
         if i > 0:
             test_file_content = test_file_content.split("\n")[2:]
