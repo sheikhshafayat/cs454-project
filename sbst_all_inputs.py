@@ -13,11 +13,16 @@ from library import *
 
 def collect_literals(node):
     literals = []
-    if isinstance(node, (ast.Num, ast.Str, ast.List, ast.Tuple, ast.Constant)):
+    if isinstance(node, (ast.Num, ast.Str, ast.List, ast.Tuple)):
         literals.append(node)
+    elif isinstance(node, ast.Constant) and isinstance(node.value, int):  
+        # Check if the value is not True or False before appending
+        if node.value not in (True, False):
+            literals.append(node.value)
     for child in ast.iter_child_nodes(node):
         literals.extend(collect_literals(child))
     literals = list(set(literals))  # Remove duplicates
+    print("literals = ", literals, "\n")
     return literals
 
 def parse_literal(node):
@@ -25,16 +30,20 @@ def parse_literal(node):
         return node.n
     elif isinstance(node, ast.Str):
         return node.s
-    elif isinstance(node, (ast.List, ast.Tuple)):
+    elif isinstance(node, ast.List):
         return [parse_literal(elem) for elem in node.elts]
+    elif isinstance(node, ast.Tuple):
+        return tuple(parse_literal(elem) for elem in node.elts)
     elif isinstance(node, ast.Constant):
         return node.value
     return None
+
 
 def collect_inputs(node):
     literals = collect_literals(node)
     inputs = [parse_literal(literal) for literal in literals]
     inputs = [value for value in inputs if value is not None]
+    print("inputs = ", inputs, "\n")
     return inputs
 
 def parse_answer(text):
@@ -57,16 +66,15 @@ def extract_function_info(node):
 
 def fitness_function(script_path, function_name, arguments):
     
-    
     result = [str(t) for t in arguments]
-    print("RESULT = ", result, "\n")
+    # print("RESULT = ", result, "\n")
 
     target_module = os.path.basename(script_path).removesuffix(".py")
     second_part = ""
     for arg in arguments:
         second_part += f"\t{target_module}.{function_name}{arg}\n"
     #print(f"target module: {target_module}")
-    print("SECOND PART = ", second_part, "\n")
+    # print("SECOND PART = ", second_part, "\n")
 
 
     test_file_content = f'''
@@ -84,6 +92,7 @@ def test_sample():
     
     # Run the script with coverage
     run_command = ["coverage", "run", "-m", "pytest", test_file_name]
+    # print("RUN COMMAND = ", run_command, "\n")
     subprocess.run(run_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # Generate the coverage report
@@ -130,13 +139,18 @@ def generate_random_tuple(num_arguments, arguments_type):
 # Modify hill_climbing to work with different types of arguments
 def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, max_iterations=1000):
     arg_list = []
+    variable_type_str = type(input_list[0]).__name__
+    print("variable_type = ", variable_type_str, "\n")
+    
+    ## TODO : problem with list on int: random_tuple gets num_range elts of the list instead of num_range lists...
     if len(input_list) == 0:
         random_tuple = tuple(random.randint(-100, 100) for _ in range(num_arguments))
     else:
-        #random_tuple = tuple(random.choice(int_list) for _ in range(num_arguments))
-        #random_tuple = tuple(random.randint(min(input_list), max(input_list)) for _ in range(num_arguments))
         random_tuple = tuple(random.choice(input_list) for _ in range(num_arguments))
-        
+        #selected_lists = [lst for lst in input_list if all(isinstance(elem, target_type) for elem in lst)]
+        #random_lists = random.sample(input_list, num_arguments)
+        #random_tuple = tuple(random_lists)
+        print("random_tuple = ", random_tuple, "\n")
         # maybe have to add min + max constraints ? 
 
     system_prompt_0 = f"""You are given a piece of code. Your job is to generate a
@@ -168,14 +182,14 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
     with open(script_path, "r") as f:
         code = f.read()
 
-    if args.gpt_init == "True":   
+    if args.gpt_init == "True":
         print(f"Using GPT Initialization") 
         #print("CODE = ", code, "\n")
         
         random_tuple = None 
         while random_tuple is None:
             random_tuple = get_gpt_response(code, system_prompt_0, model="gpt-3.5-turbo-1106")
-            print(f"random_tuple befor parsing : {random_tuple}")
+            print(f"random_tuple before parsing : {random_tuple}")
             random_tuple = parse_answer(random_tuple)
             if random_tuple is None:
                 continue
@@ -196,7 +210,7 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
         arg_list_2 = arg_list.copy()
         neighbor_index = random.randint(0, num_arguments - 1)
         tmp = list(arg_list_2[-1])
-        print("TMP INI  = list(arg_list_2[-1] = ", tmp, "\n")
+        #print("TMP INI  = list(arg_list_2[-1] = ", tmp, "\n")
         #tmp[neighbor_index] = random.choice(inputs_list)
         #tmp[neighbor_index] += random.randint(-5, 5)  # hyperparameter
         tmp = tuple(tmp)
@@ -219,16 +233,14 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
 
         
         
-        print("TMP = tuple(tmp) = ", tmp, "\n\n")
+        #print("TMP = tuple(tmp) = ", tmp, "\n\n")
         
-        variable_type_str = type(input_list[0]).__name__ # assume we have 1 type in the list
-        #print("variable_type_str = ", variable_type_str, "\n\n")
 
         if it - up > 3:  # if stuck in a local optimum, make a jump
             # traditional jump
             if args.gpt_feedback != "True":
                 if len(inputs_list) == 0:
-                    tmp = generate_random_tuple(num_arguments, variable_type_str)
+                    tmp = generate_random_tuple(num_arguments, variable_type_str) ###TODO: adapt to all input types 
                     print("LEN 0 -- TMP = ", tmp, "\n\n")
                     #tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
                 else:
@@ -307,7 +319,7 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
 if __name__ == "__main__":
     
     current_directory = os.getcwd()
-    print("Current Working Directory:", current_directory)
+    #print("Current Working Directory:", current_directory)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("target", help="the target python file to generate unit tests for")
@@ -322,10 +334,11 @@ if __name__ == "__main__":
 
 
     input_list = collect_inputs(tree) # getting all the inputs in the code
-
+    print("input_list = ", input_list, "\n")
     final_test_file_content = ""
     
     for i in range(len(functions_info)):
+        print(i)
         
         function_name, num_arguments = functions_info[i]
         
