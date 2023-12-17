@@ -13,12 +13,12 @@ from library import *
 
 def collect_literals(node):
     literals = []
-    if isinstance(node, (ast.Num, ast.Str, ast.List, ast.Tuple)):
-        literals.append(node)
-    elif isinstance(node, ast.Constant) and isinstance(node.value, int):  
-        # Check if the value is not True or False before appending
-        if node.value not in (True, False):
-            literals.append(node.value)
+    if isinstance(node, (ast.Constant, ast.List, ast.Tuple)):
+        if isinstance(node, ast.Constant) and isinstance(node.value, int):
+            if node.value not in (True, False):
+                literals.append(node.value)
+        else:
+            literals.append(node)
     for child in ast.iter_child_nodes(node):
         literals.extend(collect_literals(child))
     literals = list(set(literals))  # Remove duplicates
@@ -26,16 +26,22 @@ def collect_literals(node):
     return literals
 
 def parse_literal(node):
-    if isinstance(node, ast.Num):
-        return node.n
-    elif isinstance(node, ast.Str):
-        return node.s
+    print("spec = ", ast.__spec__)
+    if isinstance(node, ast.Constant): # ast.Num and ast.String are deprecated 
+        print("node = ", node)
+        print("kind = ", node.kind)
+        print("node.n = ", node.n)
+        print("node.s = ", node.s)
+        if node.kind == str : # TODO: check doc for right test
+            return node.s 
+        else: 
+            return node.n
     elif isinstance(node, ast.List):
+        print("list")
         return [parse_literal(elem) for elem in node.elts]
     elif isinstance(node, ast.Tuple):
+        print("tuple")
         return tuple(parse_literal(elem) for elem in node.elts)
-    elif isinstance(node, ast.Constant):
-        return node.value
     return None
 
 
@@ -137,22 +143,17 @@ def generate_random_tuple(num_arguments, arguments_type):
 
 
 # Modify hill_climbing to work with different types of arguments
-def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, max_iterations=1000):
+def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, max_iterations=100):
     arg_list = []
-    variable_type_str = type(input_list[0]).__name__
+    variable_type_str = type(inputs_list[0]).__name__ if inputs_list else None
     print("variable_type = ", variable_type_str, "\n")
-    
-    ## TODO : problem with list on int: random_tuple gets num_range elts of the list instead of num_range lists...
-    if len(input_list) == 0:
-        random_tuple = tuple(random.randint(-100, 100) for _ in range(num_arguments))
-    else:
-        random_tuple = tuple(random.choice(input_list) for _ in range(num_arguments))
-        #selected_lists = [lst for lst in input_list if all(isinstance(elem, target_type) for elem in lst)]
-        #random_lists = random.sample(input_list, num_arguments)
-        #random_tuple = tuple(random_lists)
-        print("random_tuple = ", random_tuple, "\n")
-        # maybe have to add min + max constraints ? 
 
+    if len(inputs_list) == 0:
+        random_tuple = generate_random_tuple(num_arguments, variable_type_str)
+    else:
+        random_tuple = tuple(random.choice(inputs_list) for _ in range(num_arguments))
+        print("random_tuple = ", random_tuple, "\n")
+        
     system_prompt_0 = f"""You are given a piece of code. Your job is to generate a
     test case that will maximize the code coverage of the test suite.
     Return your test case as a list of inputs to the function. The size of the list 
@@ -215,22 +216,29 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
         #tmp[neighbor_index] += random.randint(-5, 5)  # hyperparameter
         tmp = tuple(tmp)
         
-        if isinstance(tmp[neighbor_index], int):
+        if variable_type_str == "int":
+            print("int")
             tmp = tuple(
                 value + random.randint(-5, 5) if i == neighbor_index else value
                 for i, value in enumerate(tmp)
             )
-        elif isinstance(tmp[neighbor_index], str):
+        elif variable_type_str == "str":
+            print("str")
             tmp = tuple(
                 value + ''.join(random.choice(string.ascii_letters) for _ in range(3))
                 if i == neighbor_index and random.choice([True, False])  # Add or remove letters randomly
                 else value
                 for i, value in enumerate(tmp)
             )
+        elif variable_type_str == "list": # list of int 
+            print("list")
+            # Handle list type
+            tmp = list(tmp)
+            tmp[neighbor_index] = tmp[neighbor_index] + random.randint(-5, 5)
+            tmp = tuple(tmp)
         else:
             # Handle other types as needed
             pass
-
         
         
         #print("TMP = tuple(tmp) = ", tmp, "\n\n")
