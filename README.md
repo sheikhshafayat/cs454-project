@@ -1,13 +1,13 @@
-# How to test
+## This is the repository of our CS454: AI Based Software Engineering class project by team 11. 
+
+The project idea is based on the homework 2 of the same class and the code-base is also based on that. 
+
 First, you have to install modules via requirements.txt.
 
     pip install requirements.txt
 
 Second, you have to get an openai api key and save it in 'openai-api-.txt'.
-And then, you can run test with command below.
+To run the code, use bash command: `python sbst_all_inputs.py filepath gpt_init gpt_jump` (or see the bash file)
 
-    python sbst_all_inputs.py [TARGET EXAMPLE PATH] [GPT INIT] [GPT FEEDBACK]
 
-If you want to test 'ex/example1.py' with GPT initialization and GPT feedback, you have to enter like this.
-
-    python sbst_all_inputs.py ex/example1.py True True
+Replace filepath with a filepath from `ex` folder, example, `ex/example1.py`. For `gpt_init` and `gpt_jump` use either "True" or "False" to indicate whether you want to initialize/make a jump using ChatGPT
