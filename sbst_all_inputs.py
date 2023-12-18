@@ -108,9 +108,9 @@ def test_sample():
 
     # Parse the coverage percentage from the report output
     coverage_line = report_output.stdout.splitlines()[-1]
-    coverage_percent_match = re.search(r'(\d+%)', coverage_line)
+    coverage_percent_match = re.search(r'\d+%', coverage_line)
     if coverage_percent_match:
-        coverage_percent = int(coverage_percent_match.group(1)[:-1])
+        coverage_percent = int(coverage_percent_match.group()[:-1])
         #print(f"Coverage: {coverage_percent}%")
         print("COVERAGE PERCENT = ", coverage_percent, "\n")
 
@@ -129,6 +129,9 @@ def generate_random_element(argument_type):
     elif argument_type == "str":
         print("--string--")
         return ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=5))
+    elif argument_type.startswith("List"):
+        print("--list--")
+        return list(generate_random_element(argument_type[5:-1]) for _ in range(random.randint(1, 5)))
     elif argument_type == "tuple":
         print("--tuple--")
         return tuple(generate_random_element() for _ in range(random.randint(1, 5)))
@@ -136,23 +139,49 @@ def generate_random_element(argument_type):
         print("--type none--")
         return None
 
-def generate_random_tuple(num_arguments, arguments_type):
+def generate_random_tuple(arguments_types):
     # Generate a tuple with random elements
-    return tuple(generate_random_element(arguments_type) for _ in range(num_arguments))
+    return tuple(generate_random_element(arg_type) for arg_type in arguments_types)
 
-
+def parse_type(text):
+    # Get the type guess
+    try:
+      match = re.search(r'(\{.*?\})', text)
+      answer_text = match.group(1)
+      final = json.loads(answer_text)['types']
+      return final
+    except Exception as e:
+        return None
 
 # Modify hill_climbing to work with different types of arguments
 def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, max_iterations=100):
+    with open(script_path, "r") as f:
+        code = f.read()
+    
+    system_prompt_2 = f"""You are given a piece of code. Your job is to guess the
+    type of each parameter of function. Return your guess as a list of python type. The size of the list 
+    is equal to the number of arguments of the function.
+
+    Return the test case within this json format: {{"types": ["type1", "type2", ...]}}
+    The code is given below within triple ticks.
+    """
+    type_tuple = get_gpt_response(code, system_prompt_2, model="gpt-3.5-turbo-1106")
+    print(f"type_tuple before parsing : {type_tuple}")
+    type_tuple = parse_type(type_tuple)
+    print(f"type_tuple after parsing : {type_tuple}")
+
     arg_list = []
-    variable_type_str = type(inputs_list[0]).__name__ if inputs_list else None
+    # variable_type_str = type(inputs_list[0]).__name__ if inputs_list else None
+    variable_type_str = type_tuple[0]
     print("variable_type = ", variable_type_str, "\n")
 
-    if len(inputs_list) == 0:
-        random_tuple = generate_random_tuple(num_arguments, variable_type_str)
-    else:
-        random_tuple = tuple(random.choice(inputs_list) for _ in range(num_arguments))
-        print("random_tuple = ", random_tuple, "\n")
+    # if len(inputs_list) == 0:
+    #     random_tuple = generate_random_tuple(num_arguments, variable_type_str)
+    # else:
+    #     random_tuple = tuple(random.choice(inputs_list) for _ in range(num_arguments))
+    #     print("random_tuple = ", random_tuple, "\n")
+    random_tuple = generate_random_tuple(type_tuple)
+    print("random_tuple = ", random_tuple, "\n")
         
     system_prompt_0 = f"""You are given a piece of code. Your job is to generate a
     test case that will maximize the code coverage of the test suite.
@@ -179,9 +208,6 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
 
     if args.gpt_feedback == "True":
         print(f"Using GPT Feedback")
-    
-    with open(script_path, "r") as f:
-        code = f.read()
 
     if args.gpt_init == "True":
         print(f"Using GPT Initialization") 
@@ -210,6 +236,7 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
         # Generate a neighbor
         arg_list_2 = arg_list.copy()
         neighbor_index = random.randint(0, num_arguments - 1)
+        variable_type_str = type_tuple[neighbor_index]
         tmp = list(arg_list_2[-1])
         #print("TMP INI  = list(arg_list_2[-1] = ", tmp, "\n")
         #tmp[neighbor_index] = random.choice(inputs_list)
@@ -230,12 +257,50 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
                 else value
                 for i, value in enumerate(tmp)
             )
-        elif variable_type_str == "list": # list of int 
+        elif variable_type_str.startswith("List"): # list of int 
             print("list")
+            nest_variable_type_str = variable_type_str[5:-1]
             # Handle list type
-            tmp = list(tmp)
-            tmp[neighbor_index] = tmp[neighbor_index] + random.randint(-5, 5)
-            tmp = tuple(tmp)
+            if nest_variable_type_str == "int":
+                print("int")
+                tmp = list(tmp)
+                if len(tmp[neighbor_index]) > 0:
+                    nest_index = random.randint(0 , len(tmp[neighbor_index]) - 1)
+                    tmp[neighbor_index][nest_index] = tmp[neighbor_index][nest_index] + random.randint(-5, 5)
+                else:
+                    tmp[neighbor_index].append(random.randint(-5, 5))
+                tmp = tuple(tmp)
+            elif nest_variable_type_str == "str":
+                print("str")
+                tmp = list(tmp)
+                if len(tmp[neighbor_index]) > 0:
+                    nest_index = random.randint(0 , len(tmp[neighbor_index]) - 1)
+                    tmp[neighbor_index] = list(
+                        value + ''.join(random.choice(string.ascii_letters) for _ in range(3))
+                        if i == nest_index and random.choice([True, False])
+                        else value
+                        for i, value in enumerate(tmp)
+                    )
+                else:
+                    tmp[neighbor_index].append(random.choice(string.ascii_letters))
+                tmp = tuple(tmp)
+            elif nest_variable_type_str.startswith("List"): # list of int 
+                print("list")
+                # Handle list type
+                tmp = list(tmp)
+                if len(tmp[neighbor_index]) > 0:
+                    nest_index = random.randint(0 , len(tmp[neighbor_index]) - 1)
+                    nest_nest_index = random.randint(0 , len(tmp[neighbor_index][nest_index]) - 1)
+                    if len(tmp[neighbor_index][nest_index]) > 0:
+                        tmp[neighbor_index][nest_index][nest_nest_index] = tmp[neighbor_index][nest_index][nest_nest_index] + random.randint(-5, 5)
+                    else:
+                        tmp[neighbor_index][nest_index].append(random.randint(-5, 5))
+                else:
+                    tmp[neighbor_index].append(list(random.randint(-5, 5) for _ in range(random.randint(0, 5))))
+                tmp = tuple(tmp)
+            else:
+                # Handle other types as needed
+                pass
         else:
             # Handle other types as needed
             pass
@@ -248,7 +313,7 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
             # traditional jump
             if args.gpt_feedback != "True":
                 if len(inputs_list) == 0:
-                    tmp = generate_random_tuple(num_arguments, variable_type_str) ###TODO: adapt to all input types 
+                    tmp = generate_random_tuple(type_tuple) ###TODO: adapt to all input types 
                     print("LEN 0 -- TMP = ", tmp, "\n\n")
                     #tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
                 else:
@@ -260,7 +325,7 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
                             tmp = tuple(random.choice(inputs_list) for _ in range(num_arguments))
                         else:
                             tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
-                    elif variable_type_str == "string":
+                    elif variable_type_str == "str":
                         rand = random.random()
                         if rand < 0.4:
                             tmp = tuple(value + ''.join(random.choice(string.ascii_letters) for _ in range(3)) for value in tmp)
