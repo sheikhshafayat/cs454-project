@@ -9,6 +9,7 @@ import ast
 import json
 import csv
 import string
+import signal
 from library import *
 
 def collect_literals(node):
@@ -99,7 +100,11 @@ def test_sample():
     # Run the script with coverage
     run_command = ["coverage", "run", "-m", "pytest", test_file_name]
     # print("RUN COMMAND = ", run_command, "\n")
-    subprocess.run(run_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        subprocess.run(run_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3.0)
+    except subprocess.TimeoutExpired as e:
+        print(f'coverage pytest timeout')
+        return 0, test_file_content
 
     # Generate the coverage report
     report_command = ["coverage", "report"]
