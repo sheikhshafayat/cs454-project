@@ -170,6 +170,13 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
     print(f"type_tuple before parsing : {type_tuple}")
     type_tuple = parse_type(type_tuple)
     print(f"type_tuple after parsing : {type_tuple}")
+    type_guess = []
+    for ty in type_tuple:
+        if ty.startswith("Union"):
+            ty = ty[6:-1].split(',')[0]
+        type_guess.append(ty)
+    print(f'type_tuple again: {type_guess}')
+    type_tuple = tuple(type_guess)
 
     arg_list = []
     # variable_type_str = type(inputs_list[0]).__name__ if inputs_list else None
@@ -258,7 +265,7 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
                 else value
                 for i, value in enumerate(tmp)
             )
-        elif variable_type_str.startswith("List"): # list
+        elif variable_type_str.startswith("List") or variable_type_str.startswith("list"): # list
             print("list")
             nest_variable_type_str = variable_type_str[5:-1]
             # Handle list type
@@ -285,7 +292,7 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
                 else:
                     tmp[neighbor_index].append(random.choice(string.ascii_letters))
                 tmp = tuple(tmp)
-            elif nest_variable_type_str.startswith("List"): # list of list of int
+            elif nest_variable_type_str.startswith("List") or nest_variable_type_str.startswith("list"): # list of list of int
                 print("list")
                 # Handle list type
                 tmp = list(tmp)
