@@ -107,7 +107,7 @@ def test_sample():
     #print(report_output.stdout)
 
     # Parse the coverage percentage from the report output
-    coverage_line = report_output.stdout.splitlines()[-1]
+    coverage_line = report_output.stdout.splitlines()[2]
     coverage_percent_match = re.search(r'\d+%', coverage_line)
     if coverage_percent_match:
         coverage_percent = int(coverage_percent_match.group()[:-1])
@@ -160,7 +160,8 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
     
     system_prompt_2 = f"""You are given a piece of code. Your job is to guess the
     type of each parameter of function. Return your guess as a list of python type. The size of the list 
-    is equal to the number of arguments of the function.
+    is equal to the number of arguments of the function. Also, each parameter type guess should not be an Union[] type.
+    If there is an Union[] type, you should select the most probable type among the candidates.
 
     Return the test case within this json format: {{"types": ["type1", "type2", ...]}}
     The code is given below within triple ticks.
@@ -257,7 +258,7 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
                 else value
                 for i, value in enumerate(tmp)
             )
-        elif variable_type_str.startswith("List"): # list of int 
+        elif variable_type_str.startswith("List"): # list
             print("list")
             nest_variable_type_str = variable_type_str[5:-1]
             # Handle list type
@@ -284,7 +285,7 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
                 else:
                     tmp[neighbor_index].append(random.choice(string.ascii_letters))
                 tmp = tuple(tmp)
-            elif nest_variable_type_str.startswith("List"): # list of int 
+            elif nest_variable_type_str.startswith("List"): # list of list of int
                 print("list")
                 # Handle list type
                 tmp = list(tmp)
@@ -312,30 +313,32 @@ def hill_climbing(script_path, function_name, num_arguments, inputs_list, args, 
         if it - up > 3:  # if stuck in a local optimum, make a jump
             # traditional jump
             if args.gpt_feedback != "True":
-                if len(inputs_list) == 0:
-                    tmp = generate_random_tuple(type_tuple) ###TODO: adapt to all input types 
-                    print("LEN 0 -- TMP = ", tmp, "\n\n")
-                    #tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
-                else:
-                    if variable_type_str == "int":
-                        rand = random.random() # 3 cases: 1. random int in proper range, 2. random choice from int_list, 3. random int from -100 to 100
-                        if rand < 0.4:
-                            tmp = tuple(random.randint(min(inputs_list), max(inputs_list)) for _ in range(num_arguments))
-                        elif 0.4 <= rand < 0.8:
-                            tmp = tuple(random.choice(inputs_list) for _ in range(num_arguments))
-                        else:
-                            tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
-                    elif variable_type_str == "str":
-                        rand = random.random()
-                        if rand < 0.4:
-                            tmp = tuple(value + ''.join(random.choice(string.ascii_letters) for _ in range(3)) for value in tmp)
-                            print("debut\n")
-                        elif 0.4 <= rand < 0.8:
-                            tmp = tuple(value + random.choice(inputs_list) for value in tmp)
-                            print("milieu\n")
-                        else:
-                            tmp = tuple(value + ''.join(random.choice(string.ascii_letters) for _ in range(3)) for value in tmp)
-                            print("fin\n")
+                tmp = generate_random_tuple(type_tuple) ###TODO: adapt to all input types 
+                print("LEN 0 -- TMP = ", tmp, "\n\n")
+                # if len(inputs_list) == 0:
+                #     tmp = generate_random_tuple(type_tuple) ###TODO: adapt to all input types 
+                #     print("LEN 0 -- TMP = ", tmp, "\n\n")
+                #     #tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
+                # else:
+                #     if variable_type_str == "int":
+                #         rand = random.random() # 3 cases: 1. random int in proper range, 2. random choice from int_list, 3. random int from -100 to 100
+                #         if rand < 0.4:
+                #             tmp = tuple(random.randint(min(inputs_list), max(inputs_list)) for _ in range(num_arguments))
+                #         elif 0.4 <= rand < 0.8:
+                #             tmp = tuple(random.choice(inputs_list) for _ in range(num_arguments))
+                #         else:
+                #             tmp = tuple(random.randint(-100, 100) for _ in range(num_arguments))
+                #     elif variable_type_str == "str":
+                #         rand = random.random()
+                #         if rand < 0.4:
+                #             tmp = tuple(value + ''.join(random.choice(string.ascii_letters) for _ in range(3)) for value in tmp)
+                #             print("debut\n")
+                #         elif 0.4 <= rand < 0.8:
+                #             tmp = tuple(value + random.choice(inputs_list) for value in tmp)
+                #             print("milieu\n")
+                #         else:
+                #             tmp = tuple(value + ''.join(random.choice(string.ascii_letters) for _ in range(3)) for value in tmp)
+                #             print("fin\n")
 
             
             # gpt jump
