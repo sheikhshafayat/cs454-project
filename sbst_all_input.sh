@@ -8,10 +8,10 @@ target_files=(
 "ex/example4.py"
 "ex/example5.py"
 "ex/example6.py"
-)  # Add your target files here
+)  # Add all the target files here
 
 # Loop through each file and run the Python script
 for file in "${target_files[@]}"; do
     echo "Running script for $file..."
-    python sbst_all_inputs.py "$file" "False" "False"  # Replace 'your_python_script.py' with your actual Python script
+    python sbst_all_inputs.py "$file" "False" "False"  
 done
